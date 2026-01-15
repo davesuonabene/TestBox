@@ -1,0 +1,47 @@
+# Top-level build outputs
+/build/
+/build-*/
+
+# Common build artifacts
+*.o
+*.obj
+*.d
+*.dep
+*.lst
+*.map
+*.elf
+*.bin
+*.hex
+
+# DaisySP build outputs
+/DaisySP/
+DaisySP/build/
+DaisySP/**/build/
+DaisySP/**/CMakeFiles/
+DaisySP/**/CMakeCache.txt
+DaisySP/**/cmake-build-*/
+
+# libDaisy build outputs
+/libDaisy/
+libDaisy/build/
+libDaisy/**/build/
+libDaisy/**/CMakeFiles/
+libDaisy/**/CMakeCache.txt
+libDaisy/**/cmake-build-*/
+
+# CMake artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+
+# OS/user junk
+.DS_Store
+Thumbs.db
+
+# Temp files
+/tmp/
+/temp/
+*.tmp
+*.log
+*.swp
+*.swo
