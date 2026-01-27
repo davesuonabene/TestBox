@@ -1,12 +1,13 @@
 # Project Name
 TARGET = testbox
 
-# Sources (Added screen.cpp)
+# Sources
 CPP_SOURCES = testbox.cpp hw.cpp processing.cpp screen.cpp
 
 # Library Locations
 LIBDAISY_DIR = libDaisy
 DAISYSP_DIR = DaisySP
+
 
 # Core file location
 SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core

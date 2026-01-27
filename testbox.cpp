@@ -11,7 +11,6 @@ Hardware hw;
 Processing engine;
 Screen screen;
 
-// Interrupt shared data
 volatile int32_t encoder_presses = 0;
 volatile bool    button_pressed = false;
 volatile float   pot_value = 0.0f;
@@ -36,11 +35,12 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
     
     pot_value = hw.pot.Process();
 
+    float L, R;
     for(size_t i = 0; i < size; i++)
     {
-        float sig = engine.Process();
-        out[0][i] = sig;
-        out[1][i] = sig;
+        engine.Process(L, R);
+        out[0][i] = L;
+        out[1][i] = R;
     }
 }
 
@@ -51,56 +51,65 @@ int main(void)
     engine.Init(hw.sample_rate);
     hw.seed.StartAudio(AudioCallback);
 
-    // Activity Tracking
     uint32_t last_ui_update = 0;
-    
-    // Start with ACT_NONE so "Touch me pls" shows up immediately
     UiAction last_action = ACT_NONE;
     uint32_t last_action_time = System::GetNow();
     float    last_pot_stored = 0.0f;
 
+    uint32_t enc_hold_start = 0; bool enc_hold_fired = false;
+    uint32_t btn_hold_start = 0; bool btn_hold_fired = false;
+
     while(1)
     {
-        // 1. Fetch Data
         uint32_t primask = __get_PRIMASK();
         __disable_irq();
-        
-        int32_t inc = encoder_presses;
-        encoder_presses = 0; 
-        
-        bool btn = button_pressed;
-        button_pressed = false;
-        
+        int32_t inc = encoder_presses; encoder_presses = 0; 
+        bool btn = button_pressed; button_pressed = false;
         float pot = pot_value;
-        
         if (!primask) __enable_irq();
 
-        // 2. Activity Detection
         uint32_t now = System::GetNow();
 
-        if (btn) {
-            last_action = ACT_BTN;
-            last_action_time = now;
-        }
-        else if (inc != 0) {
-            last_action = ACT_ENC;
-            last_action_time = now;
-        }
-        else if (fabs(pot - last_pot_stored) > 0.01f) {
-            last_action = ACT_KNOB;
-            last_action_time = now;
-            last_pot_stored = pot;
+        if (btn) { last_action = ACT_BTN; last_action_time = now; }
+        else if (inc != 0) { last_action = ACT_ENC; last_action_time = now; }
+        else if (fabs(pot - last_pot_stored) > 0.01f) { last_action = ACT_KNOB; last_action_time = now; last_pot_stored = pot; }
+
+        // HOLD ENCODER -> RANDOMIZE
+        if (hw.encoder.Pressed()) {
+            if (enc_hold_start == 0) enc_hold_start = now;
+            else if ((now - enc_hold_start > 1000) && !enc_hold_fired) {
+                engine.Randomize();
+                enc_hold_fired = true;
+                last_action = ACT_ENC; last_action_time = now;
+            }
+        } else { enc_hold_start = 0; enc_hold_fired = false; }
+
+        // HOLD BUTTON -> RESET
+        if (hw.button.Pressed()) {
+            if (btn_hold_start == 0) btn_hold_start = now;
+            else if ((now - btn_hold_start > 1000) && !btn_hold_fired) {
+                engine.Reset();
+                btn_hold_fired = true;
+                last_action = ACT_BTN; last_action_time = now;
+            }
+        } else { btn_hold_start = 0; btn_hold_fired = false; }
+
+        // IDLE -> RANDOMIZE (Self Gen)
+        static bool idle_random_done = false;
+        if (now - last_action_time > 20000) {
+            if (!idle_random_done) { 
+                engine.Randomize(); 
+                idle_random_done = true; 
+            }
+        } else { 
+            idle_random_done = false; 
         }
 
-        // 3. Engine Update
         engine.UpdateControls(inc, btn, pot);
 
-        // 4. Draw Screen
-        if(now - last_ui_update > 33)
-        {
+        if(now - last_ui_update > 33) {
             last_ui_update = now;
-            uint32_t idle_ms = now - last_action_time;
-            screen.DrawStatus(engine, last_action, idle_ms);
+            screen.DrawStatus(engine, last_action, now - last_action_time);
         }
     }
 }
